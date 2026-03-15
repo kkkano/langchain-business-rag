@@ -165,21 +165,17 @@ http://127.0.0.1:8000
 
 ## GitHub 推送
 
-当前工作目录一开始不是 Git 仓库，所以推送到 GitHub 需要两步：
+我已经把 `RAG_SYSTEM` 初始化成独立 Git 仓库，并提交到本地 `main` 分支。
+
+- 当前本地提交：`31b7a91`
+- 当前状态：工作区干净，可直接挂远程后推送
+
+如果你已经有 GitHub 仓库地址：
 
 ```bash
-cd /Users/wilson.zhang/Desktop/agent_engineering_lessons
-git init
-git add RAG_SYSTEM
-git commit -m "feat: add business rag qa system"
-```
-
-如果你已经有 GitHub 仓库：
-
-```bash
+cd /Users/wilson.zhang/Desktop/agent_engineering_lessons/RAG_SYSTEM
 git remote add origin <你的仓库地址>
-git branch -M main
 git push -u origin main
 ```
 
-如果你希望我继续替你实际初始化仓库并推送，只需要给我一个可推送的远程仓库地址，或者确认本机 `gh` 已登录可直接创建仓库，我就可以接着完成。
+这台机器当前没有安装 `gh`，所以我还不能直接替你创建 GitHub 仓库。只要你给我一个可推送的远程仓库地址，或者安装并登录 `gh`，我就可以继续帮你完成最后一步 push。
