@@ -1,33 +1,38 @@
 # LangChain Business RAG QA System
 
-这是一个放在 `RAG_SYSTEM` 目录下的完整业务型 RAG 问答系统，面向中文知识库场景设计，支持文档导入、多轮对话、代词指代理解、混合召回、Cross-Encoder reranking、结构化输出、引用溯源、RAGAS 评估和 Web 交互。
+[中文说明 / Chinese README](./README.zh-CN.md)  
+[中文技术博客 / Chinese Technical Blog](./docs/blog_zh.md)  
+[Architecture Diagram](./docs/business_rag_architecture.mmd)
 
-项目默认推荐使用 DeepSeek API，同时兼容 OpenAI 风格接口。
+This repository contains a production-style RAG QA system built with LangChain for Chinese business knowledge bases. It supports document ingestion, multi-turn conversation, question rewriting, hybrid retrieval, reranking, structured answers, source tracing, RAGAS evaluation, and a lightweight web UI.
 
-## 项目亮点
+The project defaults to DeepSeek, while remaining compatible with OpenAI-style `base_url + api_key + model` endpoints.
 
-- 多轮问答：使用 `ConversationBufferMemory` 保存历史，追问里的“它”“这个规则”等代词会先做问题改写再检索。
-- 严格回答：Prompt 要求模型只能基于上下文回答，不知道就直接回答“我不知道”。
-- 结构化输出：使用 Pydantic 约束 `answer`、`grounded`、`citations`、`source_documents`。
-- 混合召回：向量检索 + `rank_bm25` 关键词检索融合。
-- 精排优化：使用 `sentence-transformers` 的 Cross-Encoder 做 reranking。
-- 缓存优化：接入 LangChain `InMemoryCache`，重复 Prompt 可以直接命中缓存。
-- 质量评估：集成 RAGAS Benchmark，支持一键跑忠实度、答案相关性、上下文召回、上下文精度、答案正确性。
-- Web 界面：支持上传文档、按路径导入、样例知识库、聊天、查看引用、查看缓存和评估结果。
+## Highlights
 
-## 系统架构
+- Multi-turn chat with `ConversationBufferMemory`
+- Strict grounded answering with "I don't know" fallback
+- `ChatPromptTemplate.from_messages` for rewrite and answer prompts
+- Pydantic structured output for `answer`, `grounded`, `citations`, and `source_documents`
+- Hybrid retrieval with Chroma dense recall and `rank_bm25`
+- Cross-Encoder reranking with `sentence-transformers`
+- LangChain `InMemoryCache` for repeated LLM calls
+- Built-in RAGAS benchmark for regression evaluation
+- FastAPI web app for upload, path ingestion, chat, health, cache stats, and evaluation
+
+## Architecture
 
 ```mermaid
 flowchart LR
     A[Web UI] --> B[FastAPI]
     B --> C[SessionManager / ConversationBufferMemory]
     B --> D[RAGService]
-    D --> E[问题改写 LLM]
+    D --> E[Question Rewrite LLM]
     E --> F[VectorIndex]
     F --> F1[Dense Recall / Chroma]
     F --> F2[BM25 Recall / rank_bm25]
     F --> F3[Cross-Encoder Reranker]
-    F3 --> G[严格回答 Prompt]
+    F3 --> G[Strict Answer Prompt]
     G --> H[Chat Model]
     H --> I[Pydantic Structured Output]
     I --> J[Answer + Citations + Source Documents]
@@ -37,10 +42,10 @@ flowchart LR
     L --> M[RAGAS Metrics]
 ```
 
-## 目录结构
+## Project Structure
 
 ```text
-RAG_SYSTEM/
+langchain-business-rag/
 ├── app/
 │   ├── cache.py
 │   ├── config.py
@@ -68,47 +73,36 @@ RAG_SYSTEM/
 └── requirements.txt
 ```
 
-## 技术选型
+## Tech Stack
 
-- `FastAPI`
-  提供 JSON API 和轻量 Web 页面，便于快速演示和继续扩展。
-- `LangChain`
-  用来组织 Prompt、Memory、Chat Model、Cache 等核心组件。
-- `ChatPromptTemplate.from_messages`
-  定义问题改写 Prompt 和严格基于上下文回答的 Prompt。
-- `ConversationBufferMemory`
-  管理多轮历史，让追问能先补全再检索。
-- `ChromaDB`
-  持久化向量索引，做 Dense Retrieval。
-- `rank_bm25`
-  增强关键词、专有名词、短 Query 的召回能力。
-- `sentence-transformers`
-  同时用于本地向量化和 Cross-Encoder reranking。
-- `LangChain InMemoryCache`
-  缓存完全相同的 LLM 请求，减少重复改写和重复回答的耗时。
-- `RAGAS 0.1.21`
-  用于评估 RAG 质量。当前项目运行在 Python 3.8，因此锁定到兼容版本。
+- `FastAPI` for JSON APIs and the demo web UI
+- `LangChain` for prompts, memory, chat models, and cache orchestration
+- `ChromaDB` for dense vector storage
+- `rank_bm25` for keyword recall
+- `sentence-transformers` for embeddings and Cross-Encoder reranking
+- `LangChain InMemoryCache` for exact-match LLM caching
+- `RAGAS 0.1.21` for evaluation on Python 3.8
 
-## 运行方式
+## Getting Started
 
-### 1. 安装依赖
+### 1. Install dependencies
 
 ```bash
-cd /Users/wilson.zhang/Desktop/agent_engineering_lessons/RAG_SYSTEM
+cd /Users/wilson.zhang/Desktop/agent_engineering_lessons/langchain-business-rag
 python3 -m pip install -r requirements.txt
 ```
 
-### 2. 配置环境变量
+### 2. Configure environment variables
 
-推荐直接使用 DeepSeek：
+Recommended DeepSeek setup:
 
 ```bash
-export DEEPSEEK_API_KEY="你的 DeepSeek API Key"
+export DEEPSEEK_API_KEY="your DeepSeek API key"
 export DEEPSEEK_BASE_URL="https://api.deepseek.com"
 export DEEPSEEK_MODEL="deepseek-chat"
 ```
 
-检索、缓存和 reranking 相关可选项：
+Optional retrieval, reranking, and cache settings:
 
 ```bash
 export RAG_TOP_K="4"
@@ -121,114 +115,91 @@ export RERANK_BATCH_SIZE="16"
 export ENABLE_LLM_CACHE="true"
 ```
 
-如果你已经在使用 OpenAI 风格环境变量，也兼容：
+OpenAI-style configuration is also supported:
 
 ```bash
-export OPENAI_API_KEY="你的 API Key"
-export OPENAI_BASE_URL="你的兼容接口地址"
+export OPENAI_API_KEY="your API key"
+export OPENAI_BASE_URL="your compatible endpoint"
 export OPENAI_MODEL="gpt-4o-mini"
 ```
 
-可选地显式指定提供方：
+Optional provider override:
 
 ```bash
 export LLM_PROVIDER="deepseek"
 ```
 
-说明：
+Notes:
 
-- 默认聊天模型是 `deepseek-chat`
-- `deepseek-reasoner` 当前不建议直接替换，因为项目依赖结构化输出
-- `ENABLE_LLM_CACHE=true` 时会启用 LangChain `InMemoryCache`
-- `InMemoryCache` 是内存级精确命中缓存，不是 embedding-based 的语义相似缓存
-- 首次启用 Cross-Encoder reranking 时，模型可能需要联网下载
+- The default chat model is `deepseek-chat`.
+- `deepseek-reasoner` is not recommended here because the project depends on structured output behavior.
+- `ENABLE_LLM_CACHE=true` enables LangChain `InMemoryCache`.
+- `InMemoryCache` is an exact-match in-memory LLM cache, not an embedding-based semantic cache.
+- The reranker model may need a one-time download on first use.
 
-### 3. 启动服务
+### 3. Start the server
 
 ```bash
-cd /Users/wilson.zhang/Desktop/agent_engineering_lessons/RAG_SYSTEM
+cd /Users/wilson.zhang/Desktop/agent_engineering_lessons/langchain-business-rag
 python3 main.py
 ```
 
-浏览器打开：
+Open:
 
 ```text
 http://127.0.0.1:8000
 ```
 
-### 4. 推荐体验路径
+### 4. Suggested demo flow
 
-1. 点击“加载内置样例知识库”
-2. 提问“退款金额高于 200 元怎么办？”
-3. 再追问“那它需要谁二次确认？”
-4. 点击“运行评估”查看 RAGAS Benchmark
+1. Click "Load sample knowledge base"
+2. Ask "What should happen when a refund amount is higher than 200 RMB?"
+3. Follow up with "Then who needs to confirm it?"
+4. Run the built-in benchmark from the web page
 
-你会看到：
-
-- 页面直接展示当前模型、Embedding、reranking 和缓存状态
-- 聊天回答附带引用来源和 `source_documents`
-- 缓存会记录 hits / misses / entries
-- RAGAS 会输出 5 个业务问题的分项指标和总览指标
-
-## API 说明
+## API Overview
 
 - `POST /api/session`
-  创建会话。
 - `GET /api/sessions/{session_id}/documents`
-  查看当前会话已导入的文档。
 - `POST /api/documents/sample`
-  导入内置业务样例知识库。
 - `POST /api/documents/path`
-  通过文件路径导入文档。
 - `POST /api/documents/upload`
-  通过 Web 上传文档。
 - `POST /api/chat`
-  发起问答，返回结构化答案和 `source_documents`。
 - `POST /api/evaluate`
-  运行内置 RAGAS Benchmark。
 - `POST /api/cache/reset`
-  清空 LangChain `InMemoryCache`。
 - `POST /api/session/reset`
-  清空会话历史，或连同知识库一起重置。
 - `GET /api/health`
-  查看模型、Embedding、Cache、Reranker 状态。
 
-## 关键实现
+## Key Implementation Notes
 
-### 1. 问题改写 + 严格回答
+### Rewrite before retrieval
 
-[`app/rag_chain.py`](./app/rag_chain.py) 中的核心流程是：
+The system rewrites follow-up questions into standalone search queries before retrieval, so pronouns and omitted context do not hurt recall quality.
 
-1. 读取 `chat_history`
-2. 调用问题改写 Prompt，把追问变成独立问题
-3. 走混合召回和 reranking
-4. 把命中的片段格式化成带 `source_id` 的上下文
-5. 调用严格回答 Prompt，输出 Pydantic 结构化结果
+### Hybrid retrieval plus reranking
 
-### 2. 混合召回 + 重排
+The retrieval stack combines:
 
-[`app/vector_store.py`](./app/vector_store.py) 中做了三段检索：
-
-1. Chroma Dense Recall
-2. `rank_bm25` Keyword Recall
+1. Dense recall in Chroma
+2. BM25 keyword recall
 3. Cross-Encoder reranking
 
-这让系统既能处理中文语义近似，又能兼顾规则号、关键词和金额阈值这类精确信息。
+This is especially useful for threshold-based policies, product names, rule identifiers, and short business queries.
 
-### 3. LLM Cache
+### LLM cache
 
-[`app/cache.py`](./app/cache.py) 使用 LangChain `InMemoryCache` 做全局缓存，并额外记录了：
+[`app/cache.py`](./app/cache.py) wraps LangChain `InMemoryCache` and exposes basic observability:
 
 - `hits`
 - `misses`
 - `writes`
 - `entries`
 
-这对重复提问、重复跑 Benchmark 很有帮助。
+This is useful for repeated prompting and benchmark regression runs.
 
-### 4. RAGAS Benchmark
+### RAGAS benchmark
 
-[`app/evaluation.py`](./app/evaluation.py) 内置了 5 个业务问题，跑以下指标：
+[`app/evaluation.py`](./app/evaluation.py) includes a built-in benchmark over the sample business documents and computes:
 
 - `faithfulness`
 - `answer_relevancy`
@@ -236,40 +207,25 @@ http://127.0.0.1:8000
 - `context_precision`
 - `answer_correctness`
 
-注意：
+The benchmark uses isolated temporary memory so evaluation does not pollute the active chat session.
 
-- 当前 Benchmark 只适配内置样例知识库
-- 评估时使用隔离的临时 memory，不会污染当前聊天历史
-- 项目当前是 Python 3.8，因此 `ragas` 锁到了 `0.1.21`
-
-## 已支持的文档类型
+## Supported File Types
 
 - `.txt`
 - `.md`
 - `.pdf`
 - `.docx`
 
-## 常见问题
+## FAQ
 
-### 1. 为什么页面上叫 Semantic Cache，但代码里是 `InMemoryCache`？
+### Why mention "semantic cache" while using `InMemoryCache`?
 
-按严格定义，LangChain `InMemoryCache` 不是 embedding-based 的 semantic cache，它是“完全相同 Prompt 命中”的 LLM Cache。这个项目按需求接入了它，并在页面和文档里明确标注了这一点，避免误解。
+Strictly speaking, LangChain `InMemoryCache` is not a semantic cache. It is an exact-match LLM cache. This repository keeps the implementation accurate and explicitly documents that distinction.
 
-### 2. 为什么 `ragas` 没有直接用最新版？
+### Why pin `ragas` to `0.1.21`?
 
-当前本地环境是 Python 3.8，而较新的 `ragas` 版本已经开始使用 3.9+ 语法。为了让项目能在现有环境里稳定运行，这里锁定为 `ragas==0.1.21`。
+This project currently runs on Python 3.8. Newer `ragas` releases use newer Python syntax, so `0.1.21` is the stable compatible choice here.
 
-### 3. 为什么 RAGAS Benchmark 只支持样例知识库？
+### Where is the Chinese documentation?
 
-因为评估需要参考答案。当前项目内置了一套与样例知识库对应的业务问题和标准答案，适合做回归测试。如果后续你想评估自定义知识库，需要补一份自己的 benchmark dataset。
-
-## 技术博客
-
-已在 [`docs/blog_zh.md`](./docs/blog_zh.md) 准备了一篇可以直接发到掘金或知乎的中文技术博客，包含：
-
-- 架构图
-- 关键代码
-- 遇到的问题
-- 解决方案
-
-单独的 Mermaid 架构图也放在 [`docs/business_rag_architecture.mmd`](./docs/business_rag_architecture.mmd)。
+Use [README.zh-CN.md](./README.zh-CN.md) for the full Chinese project guide, and [docs/blog_zh.md](./docs/blog_zh.md) for the Chinese technical article draft.
