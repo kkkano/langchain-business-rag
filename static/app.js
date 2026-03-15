@@ -1,6 +1,7 @@
 const state = {
   sessionId: null,
   busy: false,
+  health: null,
 };
 
 const els = {
@@ -17,6 +18,11 @@ const els = {
   uploadDocs: document.querySelector("#upload-docs"),
   resetHistory: document.querySelector("#reset-history"),
   clearSession: document.querySelector("#clear-session"),
+  healthGrid: document.querySelector("#health-grid"),
+  resetCache: document.querySelector("#reset-cache"),
+  runEval: document.querySelector("#run-eval"),
+  evalSummary: document.querySelector("#eval-summary"),
+  evalCases: document.querySelector("#eval-cases"),
 };
 
 async function request(url, options = {}) {
@@ -40,6 +46,23 @@ function setBusy(nextBusy) {
   });
 }
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function formatScore(score) {
+  return Number(score || 0).toFixed(4);
+}
+
+function formatBoolean(value, truthy = "已启用", falsy = "未启用") {
+  return value ? truthy : falsy;
+}
+
 function renderDocuments(documents) {
   if (!documents.length) {
     els.docList.innerHTML = '<div class="doc-card"><span>当前还没有知识库文档。</span></div>';
@@ -53,6 +76,56 @@ function renderDocuments(documents) {
           <strong>${escapeHtml(doc.source_name)}</strong>
           <span>类型: ${escapeHtml(doc.source_type)} | chunks: ${doc.chunk_count}</span>
           <span>${escapeHtml(doc.source_path)}</span>
+        </div>
+      `
+    )
+    .join("");
+}
+
+function renderHealth(data) {
+  state.health = data;
+  const cacheStats = data.cache_stats || {};
+  const retrievalLabel = data.reranking_enabled
+    ? "Dense + BM25 + Rerank"
+    : "Dense + BM25";
+
+  const cards = [
+    {
+      label: "模型提供方",
+      value: `${data.provider} / ${data.model}`,
+      meta: data.base_url || "默认网关",
+    },
+    {
+      label: "Embedding",
+      value: data.embedding_model,
+      meta: retrievalLabel,
+    },
+    {
+      label: "Reranking",
+      value: formatBoolean(data.reranking_enabled, "已启用", "未启用"),
+      meta: data.reranker_model || "当前未使用 Cross-Encoder",
+    },
+    {
+      label: "LLM Cache",
+      value: formatBoolean(data.cache_enabled, "已启用", "未启用"),
+      meta: data.cache_enabled
+        ? `hits ${cacheStats.hits || 0} / misses ${cacheStats.misses || 0} / entries ${cacheStats.entries || 0}`
+        : "LangChain InMemoryCache 未开启",
+    },
+    {
+      label: "API Key",
+      value: formatBoolean(data.api_key_configured, "已配置", "未配置"),
+      meta: data.api_key_configured ? "可以直接发起问答和 Benchmark" : "请先配置模型 API Key",
+    },
+  ];
+
+  els.healthGrid.innerHTML = cards
+    .map(
+      (card) => `
+        <div class="metric-card">
+          <span class="metric-label">${escapeHtml(card.label)}</span>
+          <strong class="metric-value">${escapeHtml(card.value)}</strong>
+          <span class="metric-meta">${escapeHtml(card.meta)}</span>
         </div>
       `
     )
@@ -75,7 +148,7 @@ function renderMessage(role, content, extra = {}) {
       (doc) => `
         <div class="source-item">
           <strong>${escapeHtml(doc.source_name)} / ${escapeHtml(doc.segment_label)}</strong>
-          <span>score: ${doc.score.toFixed(4)}</span>
+          <span>score: ${formatScore(doc.score)}</span>
           <span>${escapeHtml(doc.content)}</span>
         </div>
       `
@@ -86,9 +159,14 @@ function renderMessage(role, content, extra = {}) {
     ? `<div class="meta-row"><span class="chip">检索改写: ${escapeHtml(extra.rewritten_question)}</span></div>`
     : "";
 
+  const grounded = role === "assistant"
+    ? `<div class="meta-row"><span class="chip">${extra.grounded ? "已命中证据" : "证据不足"}</span></div>`
+    : "";
+
   wrapper.innerHTML = `
     <div class="role">${role === "user" ? "User" : "Assistant"}</div>
     <div class="content">${escapeHtml(content)}</div>
+    ${grounded}
     ${rewritten}
     ${citations ? `<div class="citation-row">${citations}</div>` : ""}
     ${sourceDocuments ? `<div class="source-row">${sourceDocuments}</div>` : ""}
@@ -97,13 +175,61 @@ function renderMessage(role, content, extra = {}) {
   els.chatLog.scrollTop = els.chatLog.scrollHeight;
 }
 
-function escapeHtml(value) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+function renderEvaluation(data) {
+  if (!data.summary_metrics.length) {
+    els.evalSummary.innerHTML = '<div class="empty-state">没有可展示的评估指标。</div>';
+  } else {
+    els.evalSummary.innerHTML = data.summary_metrics
+      .map(
+        (metric) => `
+          <div class="metric-card compact">
+            <span class="metric-label">${escapeHtml(metric.label)}</span>
+            <strong class="metric-value">${formatScore(metric.score)}</strong>
+            <span class="metric-meta">${escapeHtml(metric.name)}</span>
+          </div>
+        `
+      )
+      .join("");
+  }
+
+  els.evalCases.innerHTML = data.cases
+    .map((item) => {
+      const metrics = item.metrics
+        .map(
+          (metric) => `
+            <span class="score-pill ${metric.score >= 0.75 ? "good" : metric.score >= 0.5 ? "mid" : "low"}">
+              ${escapeHtml(metric.label)} ${formatScore(metric.score)}
+            </span>
+          `
+        )
+        .join("");
+
+      const citations = item.citations
+        .map(
+          (citation) =>
+            `<span class="chip">${escapeHtml(citation.source_name)} / ${escapeHtml(
+              citation.segment_label
+            )}</span>`
+        )
+        .join("");
+
+      return `
+        <article class="eval-card">
+          <div class="eval-header">
+            <strong>${escapeHtml(item.question)}</strong>
+            <span class="score-pill ${item.grounded ? "good" : "low"}">
+              ${item.grounded ? "grounded" : "ungrounded"}
+            </span>
+          </div>
+          <p><b>系统回答：</b>${escapeHtml(item.answer)}</p>
+          <p><b>参考答案：</b>${escapeHtml(item.reference_answer)}</p>
+          <p><b>检索改写：</b>${escapeHtml(item.rewritten_question)}</p>
+          <div class="score-row">${metrics}</div>
+          ${citations ? `<div class="citation-row">${citations}</div>` : ""}
+        </article>
+      `;
+    })
+    .join("");
 }
 
 async function ensureSession() {
@@ -132,6 +258,11 @@ async function refreshDocuments() {
   renderDocuments(data.documents);
 }
 
+async function refreshHealth() {
+  const data = await request("/api/health");
+  renderHealth(data);
+}
+
 async function ingestSamples() {
   setBusy(true);
   setStatus("正在加载内置业务样例知识库...");
@@ -142,7 +273,7 @@ async function ingestSamples() {
       body: JSON.stringify({ session_id: state.sessionId }),
     });
     await refreshDocuments();
-    setStatus("样例知识库已加载。");
+    setStatus("样例知识库已加载，现在可以直接提问或运行 Benchmark。");
   } catch (error) {
     setStatus(error.message);
   } finally {
@@ -224,9 +355,43 @@ async function sendQuestion(event) {
       body: JSON.stringify({ session_id: state.sessionId, question }),
     });
     renderMessage("assistant", data.answer, data);
+    await refreshHealth();
     setStatus("回答完成。");
   } catch (error) {
     renderMessage("assistant", `失败: ${error.message}`);
+    setStatus(error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function runEvaluation() {
+  setBusy(true);
+  setStatus("正在运行 RAGAS Benchmark，这一步会额外调用评估模型...");
+  try {
+    const data = await request("/api/evaluate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: state.sessionId }),
+    });
+    renderEvaluation(data);
+    await refreshHealth();
+    setStatus(`Benchmark 已完成，共评估 ${data.sample_count} 个问题。`);
+  } catch (error) {
+    setStatus(error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function resetCache() {
+  setBusy(true);
+  setStatus("正在清空 LLM Cache...");
+  try {
+    await request("/api/cache/reset", { method: "POST" });
+    await refreshHealth();
+    setStatus("LLM Cache 已清空。");
+  } catch (error) {
     setStatus(error.message);
   } finally {
     setBusy(false);
@@ -255,6 +420,7 @@ async function resetSession(clearDocuments) {
 async function bootstrap() {
   try {
     await ensureSession();
+    await refreshHealth();
     setStatus("会话已创建，可以先加载样例知识库再开始提问。");
   } catch (error) {
     setStatus(error.message);
@@ -267,5 +433,7 @@ els.uploadDocs.addEventListener("click", uploadDocuments);
 els.chatForm.addEventListener("submit", sendQuestion);
 els.resetHistory.addEventListener("click", () => resetSession(false));
 els.clearSession.addEventListener("click", () => resetSession(true));
+els.resetCache.addEventListener("click", resetCache);
+els.runEval.addEventListener("click", runEvaluation);
 
 bootstrap();

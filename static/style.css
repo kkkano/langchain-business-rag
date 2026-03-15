@@ -110,6 +110,17 @@ body {
   font-size: 16px;
 }
 
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.section-head h2 {
+  margin-bottom: 0;
+}
+
 .session-card {
   display: grid;
   gap: 10px;
@@ -189,6 +200,13 @@ button:disabled {
   color: white;
 }
 
+.ghost {
+  padding: 10px 12px;
+  background: rgba(15, 118, 110, 0.08);
+  color: var(--accent);
+  border: 1px solid rgba(15, 118, 110, 0.12);
+}
+
 .document-list {
   display: grid;
   gap: 10px;
@@ -212,6 +230,45 @@ button:disabled {
   font-size: 13px;
   line-height: 1.5;
   word-break: break-all;
+}
+
+.health-grid,
+.eval-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.metric-card {
+  padding: 12px;
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 251, 0.92) 100%);
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 6px;
+}
+
+.metric-card.compact {
+  padding: 10px 12px;
+}
+
+.metric-label {
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.metric-value {
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.metric-meta {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
 }
 
 .chat-shell {
@@ -318,6 +375,81 @@ button:disabled {
   line-height: 1.6;
 }
 
+.helper {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.eval-cases {
+  display: grid;
+  gap: 10px;
+}
+
+.eval-card {
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.9);
+  display: grid;
+  gap: 10px;
+}
+
+.eval-card p {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.eval-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.score-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.score-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.score-pill.good {
+  background: rgba(15, 118, 110, 0.14);
+  color: #0f766e;
+}
+
+.score-pill.mid {
+  background: rgba(223, 109, 45, 0.16);
+  color: #b45309;
+}
+
+.score-pill.low {
+  background: rgba(194, 65, 12, 0.12);
+  color: #c2410c;
+}
+
+.empty-state {
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px dashed var(--line);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+  background: rgba(255, 255, 255, 0.72);
+}
+
 .composer {
   padding: 18px 24px 24px;
   border-top: 1px solid var(--line);
@@ -344,6 +476,12 @@ button:disabled {
   color: #9a3412;
   border: 1px solid rgba(223, 109, 45, 0.18);
   line-height: 1.6;
+}
+
+.warning.info {
+  background: rgba(15, 118, 110, 0.1);
+  color: #115e59;
+  border-color: rgba(15, 118, 110, 0.14);
 }
 
 @keyframes rise {
@@ -389,5 +527,16 @@ button:disabled {
 
   .composer-box {
     grid-template-columns: 1fr;
+  }
+
+  .health-grid,
+  .eval-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .section-head,
+  .eval-header {
+    flex-direction: column;
+    align-items: stretch;
   }
 }

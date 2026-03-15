@@ -30,6 +30,18 @@ def _env_int(name: str, default: int) -> int:
         raise RuntimeError(f"环境变量 {name} 必须是整数，当前值为: {value}") from exc
 
 
+def _env_bool(name: str, default: bool) -> bool:
+    value = _env(name)
+    if not value:
+        return default
+    normalized = value.lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise RuntimeError(f"环境变量 {name} 必须是布尔值，当前值为: {value}")
+
+
 def _detect_llm_provider() -> str:
     explicit_provider = _env("LLM_PROVIDER").lower()
     if explicit_provider in {"deepseek", "openai"}:
@@ -84,6 +96,11 @@ class Settings:
     chunk_size: int = _env_int("RAG_CHUNK_SIZE", 320)
     chunk_overlap: int = _env_int("RAG_CHUNK_OVERLAP", 60)
     top_k: int = _env_int("RAG_TOP_K", 4)
+    candidate_top_k: int = _env_int("RAG_CANDIDATE_TOP_K", 12)
+    enable_llm_cache: bool = _env_bool("ENABLE_LLM_CACHE", True)
+    enable_reranking: bool = _env_bool("ENABLE_RERANKING", True)
+    reranker_model_name: str = os.getenv("RERANKER_MODEL_NAME", "BAAI/bge-reranker-base")
+    rerank_batch_size: int = _env_int("RERANK_BATCH_SIZE", 16)
 
     @property
     def provider_label(self) -> str:

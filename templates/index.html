@@ -9,14 +9,17 @@
   <body>
     <div class="shell">
       <section class="hero">
-        <span class="eyebrow">LangChain LCEL RAG</span>
+        <span class="eyebrow">LangChain Business RAG</span>
         <h1>面向真实业务场景的多轮 RAG 问答系统</h1>
         <p>
-          这套系统支持文档上传、路径导入、多轮对话、代词消解、结构化输出和引用溯源。
-          回答严格基于检索上下文，如果证据不足，会明确回答“我不知道”。
+          这套系统支持文档上传、路径导入、多轮对话、代词消解、结构化输出、混合召回、
+          Cross-Encoder reranking、RAGAS 评估和引用溯源。回答严格基于检索上下文，如果证据不足，会明确回答“我不知道”。
         </p>
         <div class="pill-row">
-          <span class="pill">LCEL</span>
+          <span class="pill">Hybrid Retrieval</span>
+          <span class="pill">Cross-Encoder Reranking</span>
+          <span class="pill">InMemoryCache</span>
+          <span class="pill">RAGAS Benchmark</span>
           <span class="pill">ConversationBufferMemory</span>
           <span class="pill">Pydantic Structured Output</span>
           <span class="pill">Source Documents</span>
@@ -27,10 +30,29 @@
           当前默认模型提供方为 <code>{{ provider_label }}</code>，默认聊天模型为 <code>{{ default_model }}</code>。
         </div>
         {% endif %}
+        {% if cache_enabled %}
+        <div class="warning info">
+          当前已启用 <code>LangChain InMemoryCache</code>。它会缓存完全相同的 Prompt + Model 请求，适合重复问答和 Benchmark 回归；
+          它是内存级精确命中缓存，不是 embedding-based 的语义相似缓存。
+        </div>
+        {% endif %}
       </section>
 
       <section class="layout">
         <aside class="panel sidebar">
+          <div class="section stack">
+            <div class="section-head">
+              <h2>系统状态</h2>
+              <button id="reset-cache" class="ghost" type="button">清空 LLM Cache</button>
+            </div>
+            <div id="health-grid" class="health-grid">
+              <div class="metric-card">
+                <span class="metric-label">状态</span>
+                <strong class="metric-value">加载中...</strong>
+              </div>
+            </div>
+          </div>
+
           <div class="section session-card">
             <h2>会话</h2>
             <div id="session-id" class="session-id">正在创建...</div>
@@ -61,6 +83,22 @@ embedding/sample_docs/product_manual.txt"
             <h2>当前知识库</h2>
             <div id="document-list" class="document-list">
               <div class="doc-card"><span>当前还没有知识库文档。</span></div>
+            </div>
+          </div>
+
+          <div class="section stack">
+            <div class="section-head">
+              <h2>RAGAS Benchmark</h2>
+              <button id="run-eval" class="secondary" type="button">运行评估</button>
+            </div>
+            <p class="helper">
+              这组评估基于内置样例知识库，覆盖退款审批、客服升级、回调重试等业务问答，适合做回归验证。
+            </p>
+            <div id="eval-summary" class="eval-summary">
+              <div class="empty-state">还没有运行 Benchmark。</div>
+            </div>
+            <div id="eval-cases" class="eval-cases">
+              <div class="empty-state">运行后会展示每个问题的答案、参考答案和 RAGAS 指标。</div>
             </div>
           </div>
         </aside>

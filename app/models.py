@@ -22,7 +22,7 @@ class SourceDocument(BaseModel):
     chunk_index: int
     segment_label: str
     content: str
-    score: float = Field(description="1 越接近 1 越相关")
+    score: float = Field(description="最终相关性分数；若启用 reranking，则为 rerank 后分数")
 
 
 class Citation(BaseModel):
@@ -80,3 +80,47 @@ class ChatResponse(BaseModel):
 class ResetRequest(BaseModel):
     session_id: str
     clear_documents: bool = False
+
+
+class CacheStats(BaseModel):
+    enabled: bool
+    backend: str
+    entries: int = 0
+    hits: int = 0
+    misses: int = 0
+    writes: int = 0
+
+
+class EvaluationMetric(BaseModel):
+    name: str
+    label: str
+    score: float
+
+
+class EvaluationRequest(BaseModel):
+    session_id: str
+
+
+class EvaluationCaseResult(BaseModel):
+    question: str
+    reference_answer: str
+    answer: str
+    grounded: bool
+    rewritten_question: str
+    citations: List[Citation]
+    source_documents: List[SourceDocument]
+    metrics: List[EvaluationMetric]
+
+
+class EvaluationResponse(BaseModel):
+    benchmark_name: str
+    session_id: str
+    ragas_version: str
+    sample_count: int
+    summary_metrics: List[EvaluationMetric]
+    cases: List[EvaluationCaseResult]
+    notes: List[str] = Field(default_factory=list)
+
+
+class CacheResetResponse(BaseModel):
+    cache: CacheStats

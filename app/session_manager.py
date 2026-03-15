@@ -56,3 +56,6 @@ class SessionManager:
         state = self.get_or_create(session_id)
         state.documents.clear()
         return state
+
+    def delete_session(self, session_id: str) -> None:
+        self.sessions.pop(session_id, None)

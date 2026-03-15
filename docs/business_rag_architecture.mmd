@@ -1,0 +1,17 @@
+flowchart LR
+    A[Web UI] --> B[FastAPI]
+    B --> C[SessionManager / ConversationBufferMemory]
+    B --> D[RAGService]
+    D --> E[问题改写 LLM]
+    E --> F[VectorIndex]
+    F --> F1[Dense Recall / Chroma]
+    F --> F2[BM25 Recall / rank_bm25]
+    F --> F3[Cross-Encoder Reranker]
+    F3 --> G[严格回答 Prompt]
+    G --> H[Chat Model]
+    H --> I[Pydantic Structured Output]
+    I --> J[Answer + Citations + Source Documents]
+    B --> K[LLM Cache / InMemoryCache]
+    B --> L[RAGAS Evaluation Service]
+    L --> D
+    L --> M[RAGAS Metrics]
