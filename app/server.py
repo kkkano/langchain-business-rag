@@ -48,8 +48,10 @@ def create_app() -> FastAPI:
             "index.html",
             {
                 "request": request,
-                "api_key_configured": bool(settings.openai_api_key),
-                "default_model": settings.openai_model,
+                "api_key_configured": bool(settings.llm_api_key),
+                "default_model": settings.llm_model,
+                "provider_label": settings.provider_label,
+                "primary_api_key_env": settings.primary_api_key_env,
             },
         )
 
@@ -57,9 +59,11 @@ def create_app() -> FastAPI:
     def health():
         return {
             "status": "ok",
-            "model": settings.openai_model,
+            "provider": settings.llm_provider,
+            "model": settings.llm_model,
+            "base_url": settings.llm_base_url,
             "embedding_model": settings.embedding_model_name,
-            "api_key_configured": bool(settings.openai_api_key),
+            "api_key_configured": bool(settings.llm_api_key),
         }
 
     @app.post("/api/session", response_model=CreateSessionResponse)

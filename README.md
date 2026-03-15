@@ -1,6 +1,6 @@
 # LangChain Business RAG QA System
 
-这是一个放在 `RAG_SYSTEM` 目录下的完整 RAG 问答系统，面向中文业务知识库场景设计，支持文档导入、多轮对话、代词指代理解、严格基于上下文回答、结构化输出以及引用溯源。
+这是一个放在 `RAG_SYSTEM` 目录下的完整 RAG 问答系统，面向中文业务知识库场景设计，支持文档导入、多轮对话、代词指代理解、严格基于上下文回答、结构化输出以及引用溯源。项目默认推荐使用 DeepSeek API，同时兼容 OpenAI 风格接口。
 
 ## 项目亮点
 
@@ -46,7 +46,7 @@ RAG_SYSTEM/
 - `ConversationBufferMemory`
   保存多轮历史消息，让追问如“那它需要谁确认”能够先被改写为独立问题，再去检索。
 - `ChatOpenAI`
-  负责对问题进行历史改写和基于上下文生成答案，模型名称与 `OPENAI_MODEL` 通过环境变量配置。
+  负责对问题进行历史改写和基于上下文生成答案。项目默认优先读取 DeepSeek 环境变量，也兼容 OpenAI 风格接口的 `base_url + api_key + model` 配置。
 - `SentenceTransformers + ChromaDB`
   使用本地向量模型 `paraphrase-multilingual-MiniLM-L12-v2` 进行中文向量化，检索结果落在本地 Chroma 持久化目录中。
 - `Pydantic`
@@ -63,23 +63,41 @@ python3 -m pip install -r requirements.txt
 
 ### 2. 配置环境变量
 
-至少需要设置：
+推荐直接使用 DeepSeek：
 
 ```bash
-export OPENAI_API_KEY="你的 API Key"
+export DEEPSEEK_API_KEY="你的 DeepSeek API Key"
+export DEEPSEEK_BASE_URL="https://api.deepseek.com"
+export DEEPSEEK_MODEL="deepseek-chat"
 ```
 
-可选项：
+检索相关可选项：
 
 ```bash
-export OPENAI_MODEL="gpt-4o-mini"
-export OPENAI_BASE_URL=""
 export RAG_TOP_K="4"
 export RAG_CHUNK_SIZE="320"
 export RAG_CHUNK_OVERLAP="60"
 ```
 
-如果你使用的是 OpenAI 兼容接口，也可以同时设置 `OPENAI_BASE_URL`。
+如果你已经在使用 OpenAI 风格的环境变量命名，这个项目也兼容：
+
+```bash
+export OPENAI_API_KEY="你的 API Key"
+export OPENAI_BASE_URL="你的兼容接口地址"
+export OPENAI_MODEL="gpt-4o-mini"
+```
+
+可选地显式指定提供方：
+
+```bash
+export LLM_PROVIDER="deepseek"
+```
+
+说明：
+
+- 默认推荐模型是 `deepseek-chat`
+- `deepseek-reasoner` 当前不建议直接替换，因为本项目依赖结构化输出和函数调用式约束
+- 如果只设置了 `OPENAI_*` 环境变量而没有设置 `DEEPSEEK_*`，系统会自动走 OpenAI 兼容模式
 
 ### 3. 启动服务
 
@@ -162,20 +180,3 @@ http://127.0.0.1:8000
 - `.md`
 - `.pdf`
 - `.docx`
-
-## GitHub 推送
-
-我已经把 `RAG_SYSTEM` 初始化成独立 Git 仓库，并提交到本地 `main` 分支。
-
-- 当前本地提交：`31b7a91`
-- 当前状态：工作区干净，可直接挂远程后推送
-
-如果你已经有 GitHub 仓库地址：
-
-```bash
-cd /Users/wilson.zhang/Desktop/agent_engineering_lessons/RAG_SYSTEM
-git remote add origin <你的仓库地址>
-git push -u origin main
-```
-
-这台机器当前没有安装 `gh`，所以我还不能直接替你创建 GitHub 仓库。只要你给我一个可推送的远程仓库地址，或者安装并登录 `gh`，我就可以继续帮你完成最后一步 push。

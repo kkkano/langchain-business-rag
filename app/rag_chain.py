@@ -1,10 +1,7 @@
 from __future__ import annotations
 
-from operator import itemgetter
 from typing import List
 
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnableLambda, RunnablePassthrough
 from langchain_openai import ChatOpenAI
 
 from .config import Settings
@@ -35,17 +32,61 @@ class RAGService:
         self._answer_prompt = build_answer_prompt()
 
     def _build_llm(self):
-        if not self.settings.openai_api_key:
-            raise RuntimeError("未检测到 OPENAI_API_KEY，请先配置后再发起对话。")
+        if not self.settings.llm_api_key:
+            raise RuntimeError(
+                "未检测到模型 API Key，请先配置 DEEPSEEK_API_KEY，"
+                "或在 OpenAI 兼容模式下配置 OPENAI_API_KEY。"
+            )
 
         kwargs = {
-            "model": self.settings.openai_model,
-            "api_key": self.settings.openai_api_key,
+            "model": self.settings.llm_model,
+            "api_key": self.settings.llm_api_key,
             "temperature": 0,
         }
-        if self.settings.openai_base_url:
-            kwargs["base_url"] = self.settings.openai_base_url
+        if self.settings.llm_base_url:
+            kwargs["base_url"] = self.settings.llm_base_url
         return ChatOpenAI(**kwargs)
+
+    @staticmethod
+    def _message_to_text(message) -> str:
+        content = message.content
+        if isinstance(content, str):
+            return content.strip()
+
+        parts = []
+        for item in content:
+            if isinstance(item, str):
+                parts.append(item)
+                continue
+            if isinstance(item, dict) and item.get("text"):
+                parts.append(str(item["text"]))
+        return "\n".join(parts).strip()
+
+    def _rewrite_question(self, llm: ChatOpenAI, chat_history, question: str) -> str:
+        prompt_value = self._rewrite_prompt.invoke(
+            {
+                "chat_history": chat_history,
+                "question": question,
+            }
+        )
+        response_message = llm.invoke(prompt_value)
+        return self._message_to_text(response_message) or question
+
+    def _generate_structured_answer(
+        self,
+        structured_llm,
+        chat_history,
+        question: str,
+        context: str,
+    ) -> StructuredAnswer:
+        prompt_value = self._answer_prompt.invoke(
+            {
+                "question": question,
+                "chat_history": chat_history,
+                "context": context,
+            }
+        )
+        return structured_llm.invoke(prompt_value)
 
     def ask(self, session: SessionState, question: str) -> ChatResponse:
         if not session.documents:
@@ -55,36 +96,24 @@ class RAGService:
         structured_llm = llm.with_structured_output(StructuredAnswer)
         chat_history = session.memory.load_memory_variables({}).get("chat_history", [])
 
-        rewrite_chain = self._rewrite_prompt | llm | StrOutputParser()
-        answer_chain = (
-            {
-                "question": itemgetter("question"),
-                "chat_history": itemgetter("chat_history"),
-                "context": itemgetter("context"),
-            }
-            | self._answer_prompt
-            | structured_llm
-        )
+        # Step 1: rewrite the follow-up question into a standalone query.
+        standalone_question = self._rewrite_question(llm, chat_history, question)
 
-        retrieval_chain = (
-            RunnablePassthrough.assign(chat_history=lambda _: chat_history)
-            .assign(standalone_question=rewrite_chain)
-            .assign(
-                source_documents=RunnableLambda(
-                    lambda data: self.vector_index.search(
-                        session_id=session.session_id,
-                        query=data["standalone_question"],
-                        top_k=self.settings.top_k,
-                    )
-                )
-            )
-            .assign(context=RunnableLambda(lambda data: format_context(data["source_documents"])))
-            .assign(structured_answer=answer_chain)
+        # Step 2: retrieve source documents from the local vector store.
+        source_documents = self.vector_index.search(
+            session_id=session.session_id,
+            query=standalone_question,
+            top_k=self.settings.top_k,
         )
+        context = format_context(source_documents)
 
-        result = retrieval_chain.invoke({"question": question})
-        structured_answer: StructuredAnswer = result["structured_answer"]
-        source_documents: List[SourceDocument] = result["source_documents"]
+        # Step 3: ask the model to answer strictly from retrieved context.
+        structured_answer = self._generate_structured_answer(
+            structured_llm=structured_llm,
+            chat_history=chat_history,
+            question=question,
+            context=context,
+        )
         citations = self._sanitize_citations(structured_answer.citations, source_documents)
         answer_text = structured_answer.answer.strip() or "我不知道"
         grounded = bool(structured_answer.grounded and citations)
@@ -96,7 +125,7 @@ class RAGService:
             session_id=session.session_id,
             answer=answer_text,
             grounded=grounded,
-            rewritten_question=result["standalone_question"].strip() or question,
+            rewritten_question=standalone_question,
             citations=citations,
             source_documents=source_documents,
         )

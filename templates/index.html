@@ -23,8 +23,8 @@
         </div>
         {% if not api_key_configured %}
         <div class="warning">
-          当前还没有配置 <code>OPENAI_API_KEY</code>，页面可以正常导入文档，但发起问答前需要先配置。
-          默认聊天模型为 <code>{{ default_model }}</code>。
+          当前还没有配置 <code>{{ primary_api_key_env }}</code>，页面可以正常导入文档，但发起问答前需要先配置。
+          当前默认模型提供方为 <code>{{ provider_label }}</code>，默认聊天模型为 <code>{{ default_model }}</code>。
         </div>
         {% endif %}
       </section>
