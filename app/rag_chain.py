@@ -151,7 +151,10 @@ class RAGService:
         self.ensure_ready(session)
 
         llm = self._build_llm()
-        structured_llm = llm.with_structured_output(StructuredAnswer)
+        structured_llm = llm.with_structured_output(
+            StructuredAnswer,
+            method="json_mode",
+        )
         chat_history = session.memory.load_memory_variables({}).get("chat_history", [])
 
         # Step 1: rewrite the follow-up question into a standalone query.
@@ -228,7 +231,10 @@ class RAGService:
         citations: List[Citation] = []
         grounded = False
         try:
-            structured_llm = self._build_llm().with_structured_output(StructuredAnswer)
+            structured_llm = self._build_llm().with_structured_output(
+                StructuredAnswer,
+                method="json_mode",
+            )
             finalized_answer = await self._finalize_streamed_answer(
                 structured_llm=structured_llm,
                 question=question,
