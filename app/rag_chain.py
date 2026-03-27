@@ -172,7 +172,7 @@ class RAGService:
         structured_answer = self._generate_structured_answer(
             structured_llm=structured_llm,
             chat_history=chat_history,
-            question=question,
+            question=standalone_question,
             context=context,
         )
         citations = self._sanitize_citations(structured_answer.citations, source_documents)
@@ -216,7 +216,7 @@ class RAGService:
 
         prompt_value = self._stream_answer_prompt_value(
             chat_history=chat_history,
-            question=question,
+            question=standalone_question,
             context=context,
         )
         answer_parts: List[str] = []
@@ -237,7 +237,7 @@ class RAGService:
             )
             finalized_answer = await self._finalize_streamed_answer(
                 structured_llm=structured_llm,
-                question=question,
+                question=standalone_question,
                 draft_answer=answer_text,
                 context=context,
             )
